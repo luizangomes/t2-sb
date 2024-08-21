@@ -1,2 +1,1 @@
-# t2-sb
-# t2-sb
+# Trabalho 2 - Diassembler
