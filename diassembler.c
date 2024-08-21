@@ -31,8 +31,9 @@ struct OpcodesAssembly tabelaDeInstrucoes[15] = {
     {"STOP", 14, 1, "Suspende a execução", 0}
 };
 
-int main(void)
-{
-    printf("Hello, World!\n");
+
+int main(int argc, char** argv) {
+    // char* filename = argv[1];
+
     return 0;
 }
