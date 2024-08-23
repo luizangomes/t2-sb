@@ -26,6 +26,19 @@ struct programAssemblyInventado{
     char operand2[50];
 };
 
+struct operandsAssemblyInventado{
+    int addressMentioned;
+    int variableAddress;
+    char name[50];
+    int value;
+};
+
+struct dataSectionAI{
+    int address;
+    char name[50];
+    int value;
+};
+
 struct OpcodesAssembly tabelaDeInstrucoes[15] = {
     {"ADD", 1, 2, "ACC <- ACC + mem(OP)", 1},
     {"SUB", 2, 2, "ACC <- ACC - mem(OP)", 1},
@@ -48,11 +61,14 @@ void tradutor(char* filename){
     FILE *file;
     struct AddressObjCode objCode[100];
     struct programAssemblyInventado program1[100];
+    struct operandsAssemblyInventado operandsAI[100];
+    struct dataSectionAI dataSection[100];
     char line[1000], *token;
-    int listOfOperands[100], opIndex=0;
+    int listOfOperands[100], opIndex=0, dsIndex = 0;
     int lineCount = 0;
     int address = 0;
-    int opcode = 0, stopOpcode = 0;
+    int opcode = 0, stopOpcode = 0, stopAddress = 10000;
+    char varName[50] = "", varTemp[50] = "";
     int opcodeBool = 0, opcodeOperands = 0, readOperand = 0;
     // Open the file for reading
 
@@ -81,6 +97,8 @@ void tradutor(char* filename){
                     opcodeOperands = 0;
                     readOperand = 0;
                     stopOpcode = 1;
+                    stopAddress = address;
+                    printf("STOP_ADDRESS = %d\n", stopAddress);
                     strcpy(program1[lineCount].opcode, token);
                     strcpy(program1[lineCount].operand1,  "");
                     strcpy(program1[lineCount].operand2, "");
@@ -90,6 +108,15 @@ void tradutor(char* filename){
             }
             if (readOperand > 0 && opcodeBool == 0){
                 opcode = 0;
+                if (stopAddress > address){
+                    operandsAI[opIndex].addressMentioned = address;
+                    operandsAI[opIndex].variableAddress = atoi(token);
+                    //sprintf(varTemp, "%d", address);
+                    strcpy(varName, "variable");
+                    strcat(varName, token);
+                    strcpy(operandsAI[opIndex].name, varName);
+                    printf("%d %s %d\n", operandsAI[opIndex].addressMentioned, operandsAI[opIndex].name, operandsAI[opIndex].variableAddress);
+                }
                 listOfOperands[opIndex] = atoi(token);
                 opIndex++;
                 if (opcodeOperands == 1){
@@ -110,6 +137,16 @@ void tradutor(char* filename){
                 }
             }
             if (stopOpcode == 1 && opcodeBool == 0){
+                if (stopAddress <= address){
+                    dataSection[dsIndex].address = address;
+                    strcpy(varName, "variable");
+                    sprintf(varTemp, "%d", address);
+                    strcat(varName, varTemp);
+                    strcpy(dataSection[dsIndex].name, varName);
+                    dataSection[dsIndex].value =  atoi(token);
+                    printf("%d %s %d\n", dataSection[dsIndex].address, dataSection[dsIndex].name, dataSection[dsIndex].value);
+                    dsIndex++;
+                }
                 strcpy(program1[lineCount].opcode, "");
                 strcpy(program1[lineCount].operand1,  token);
                 strcpy(program1[lineCount].operand2, "");
@@ -122,6 +159,7 @@ void tradutor(char* filename){
             token = strtok(NULL, " ");
         }
     }
+    fclose(file);
 }
 
 
