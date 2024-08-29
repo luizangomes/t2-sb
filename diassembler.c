@@ -26,11 +26,10 @@ struct programAssemblyInventado{
     char operand2[50];
 };
 
-struct operandsAssemblyInventado{
-    int addressMentioned;
-    int variableAddress;
-    char name[50];
-    int value;
+struct dadosAssemblyInventado{
+    int addressReferred;                // Endereço que ela foi chamada
+    int addressVariableDeclared;        // Endereço em que a label está ou valor da const/space
+    char type[50];                      // Tipo de variável
 };
 
 struct dataSectionAI{
@@ -64,7 +63,7 @@ struct OpcodesAssembly tabelaDeInstrucoes[15] = {
     {"STOP", 14, 1, "Suspende a execução", 0}
 };
 
-// Returns the size/length of list
+// Returns the size/length of list in char
 int sizeOfList(char **list) {
     int size = 0;
     while (list[size] != NULL) {
@@ -73,7 +72,7 @@ int sizeOfList(char **list) {
     return size;
 }
 
-// Checks if a string is in a list
+// Checks if a string is in a list in char
 int isInList(char *str, char *lista[]) {
     int size = sizeOfList(lista);
     for (int i = 0; i < size; i++) {
@@ -84,20 +83,42 @@ int isInList(char *str, char *lista[]) {
     return 0; // String not found in the list
 }
 
-void tradutor(char* filename){
+// Returns the size/length of list in integer
+int sizeOfListINT(int *list[]) {
+    int size = 0;
+    while (list[size] != NULL) {
+        size++;
+    }
+    return size;
+}
+
+// Verifica se um inteiro está na lista
+int isInListINT(int integer, int *lista[]) {
+    int size = sizeOfListINT(lista);
+    for (int i = 0; i < size; i++) {
+        if (integer == *lista[i]) {
+            return 1; // Inteiro encontrado na lista
+        }
+    }
+    return 0; // Inteiro não encontrado na lista
+}
+
+void objCodeTreatment(char* filename){
     FILE *file;
     struct AddressObjCode objCode[100];
     struct programAssemblyInventado program1[100];
-    struct operandsAssemblyInventado operandsAI[100];
-    struct dataSectionAI dataSection[100];
-    struct variablesList varList[100];
-    char line[1000], *token, *varSimpleList[100];
-    int listOfOperands[100], opIndex=0, dsIndex = 0, vlIndex = 0;
-    int lineCount = 0, slIndex = 0;
+    struct dadosAssemblyInventado dadosAI[100];
+    char line[1000], *token;
+    int *listOfOperands[100] = {NULL};
+    int opIndex = 0;
+    int dadosIndex = 0;
+    int lineCount = 0;
     int address = 0;
-    int opcode = 0, stopOpcode = 0, stopAddress = 10000;
-    char varName[50] = "", varTemp[50] = "";
-    int opcodeBool = 0, opcodeOperands = 0, readOperand = 0, jmpLabel = 0, constVar = 0, spaceVar = 0;
+    int jmpModule = -1;
+    int opcodeBool = 0;
+    int quantOperandos = 0;
+    int breakAddressing = 0;
+    int found = 0;
     // Open the file for reading
 
     file = fopen(filename, "r");
@@ -106,168 +127,137 @@ void tradutor(char* filename){
         exit(1);
     }
 
-    for (int i = 0; i < 100; i++) {
-        free(varSimpleList[i]);
-    };
-
-    // Initialize variable list
-    for (int i = 0; i < 100; i++) {
-        varSimpleList[i] = malloc(50 * sizeof(char));
-        if (varSimpleList[i] == NULL) {
-            perror("Memory allocation failed");
-            exit(1);
-        }
-    }
-
     while (fgets(line, 1000, file) != NULL) {
         char *token = strtok(line, " ");
         while (token != NULL) {
+            //printf("Token: %s\n", token);
             objCode[address].address = address;
             objCode[address].objCode = atoi(token);
-            printf("%d %d needs to read operands? %d opcodeBool? %d\n", objCode[address].address, objCode[address].objCode, readOperand, opcodeBool);
-            if (objCode[address].objCode < 15 && objCode[address].objCode > 0 && readOperand == 0 && stopOpcode == 0 && jmpLabel == 0){
-                opcodeBool = 1;
-                opcode = objCode[address].objCode;
+            if (address == 0){
+                opcodeBool = 1;                        // Se for o endereço 00 sempre vamos assumir que é um opcode!!!
+            }
+            if (isInListINT(address, listOfOperands) == 1){
+                strcpy(program1[lineCount].operand1, token);
+                //printf("%s|%s|%s --const e space\n", program1[lineCount].opcode, program1[lineCount].operand1, program1[lineCount].operand2);
+                for (int i = 0; i < dadosIndex; i++){
+                    if (address == dadosAI[dadosIndex].addressVariableDeclared){
+                        dadosAI[dadosIndex].addressReferred = atoi(token);
+                    }
+                }
+                lineCount++;
+                breakAddressing = 1;
+            }
+            if (objCode[address].objCode > 0 && objCode[address].objCode < 15 && opcodeBool == 1 && breakAddressing == 0){
                 strcpy(program1[lineCount].opcode, token);
-                if ((opcode > 0 && opcode < 9) || (opcode > 9 && opcode < 14)){
-                    opcodeOperands = 1;
-                    readOperand = 1;
-                    if (opcode > 5 && opcode < 9){
-                        jmpLabel = 1;
-                    }
-                    if (opcode == 11 || opcode == 12){
-                        spaceVar = 1;
-                    }
-                } else if (opcode == 9){
-                    opcodeOperands = 2;
-                    readOperand = 1;
-                } else if (opcode == 14){
-                    opcodeOperands = 0;
-                    readOperand = 0;
-                    stopOpcode = 1;
-                    stopAddress = address;
-                    //printf("STOP_ADDRESS = %d\n", stopAddress);
-                    strcpy(program1[lineCount].operand1,  "");
-                    strcpy(program1[lineCount].operand2, "");
-                    //printf("%s|%s|%s\n", program1[lineCount].opcode, program1[lineCount].operand1, program1[lineCount].operand2);
+                // Caso de ADD, SUB, MUL, DIV, STORE, INPUT, OUT
+                if ((objCode[address].objCode > 0 && objCode[address].objCode < 5) || (objCode[address].objCode > 9 && objCode[address].objCode < 14) ){
+                    quantOperandos = 1;
+                }
+                // Caso de JMP, JMPN, JMPP, JPMZ
+                if (objCode[address].objCode > 4 && objCode[address].objCode < 9){
+                    quantOperandos = 1;
+                    jmpModule = 1;
+                    //printf("Jmp Module activated %d\n", jmpModule);
+                }
+                // Caso de COPY
+                if (objCode[address].objCode == 9){
+                    quantOperandos = 2;
+                }
+                // Caso de STOP
+                if (objCode[address].objCode == 14){
+                    quantOperandos = 0;
                     lineCount += 1;
                 }
-            }
-            if (readOperand > 0 && opcodeBool == 0){
-                opcode = 0;
-                printf("Needs to read %d operands\n", opcodeOperands);
-                if (stopAddress > address){
-                    if (jmpLabel == 1){
-                        operandsAI[opIndex].addressMentioned = address;
-                        operandsAI[opIndex].variableAddress = atoi(token);
-                        //sprintf(varTemp, "%d", address);
-                        strcpy(varName, "label");
-                        strcat(varName, token);
-                        strcpy(operandsAI[opIndex].name, varName);
-                        if (isInList(operandsAI[opIndex].name, varSimpleList) == 0 || vlIndex == 0){
-                            strcpy(varSimpleList[slIndex], operandsAI[opIndex].name);
-                            slIndex++;
-                            strcpy(varList[vlIndex].name, operandsAI[opIndex].name);
-                            varList[vlIndex].type = 1;
-                            varList[vlIndex].value = address;
-                            varList[vlIndex].address = atoi(token);
-                            jmpLabel = 0;
-                            vlIndex++;
-                        }
-                        //printf("%d %s %d\n", operandsAI[opIndex].addressMentioned, operandsAI[opIndex].name, operandsAI[opIndex].variableAddress);
-                    } else {
-                        operandsAI[opIndex].addressMentioned = address;
-                        operandsAI[opIndex].variableAddress = atoi(token);
-                        //sprintf(varTemp, "%d", address);
-                        strcpy(varName, "variable");
-                        strcat(varName, token);
-                        strcpy(operandsAI[opIndex].name, varName);
-                        if (isInList(operandsAI[opIndex].name, varSimpleList) == 0|| vlIndex == 0){
-                            strcpy(varSimpleList[slIndex], operandsAI[opIndex].name);
-                            slIndex++;
-                            strcpy(varList[vlIndex].name, operandsAI[opIndex].name);
-                            varList[vlIndex].address = atoi(token);
-                            if (spaceVar == 1){
-                                varList[vlIndex].type = 3;
-                                spaceVar = 0;
-                            }
-                            vlIndex++;
-                        }
 
-                        //printf("%d %s %d\n", operandsAI[opIndex].addressMentioned, operandsAI[opIndex].name, operandsAI[opIndex].variableAddress);
-                    }
-                }
-                listOfOperands[opIndex] = atoi(token);
-                opIndex++;
-                if (opcodeOperands == 1){
-                    if (strcmp(program1[lineCount].opcode, "9") == 0){
-                        strcpy(program1[lineCount].operand2, token);
-
-                    } else {
-                        strcpy(program1[lineCount].operand1,  token);
-                        strcpy(program1[lineCount].operand2, "");
-                    }
-                    //printf("%s|%s|%s\n", program1[lineCount].opcode, program1[lineCount].operand1, program1[lineCount].operand2);
-                    lineCount += 1;
-                    opcodeOperands -= 1;
-                    readOperand = 0;
-                }
-                if (opcodeOperands == 2){
-                    strcpy(program1[lineCount].operand1, token);
-                    opcodeOperands = opcodeOperands - 1;
-                }
-            }
-            if (stopOpcode == 1 && opcodeBool == 0){
-                if (stopAddress <= address){
-                    dataSection[dsIndex].address = address;
-                    strcpy(varName, "variable");
-                    sprintf(varTemp, "%d", address);
-                    strcat(varName, varTemp);
-                    strcpy(dataSection[dsIndex].name, varName);
-                    dataSection[dsIndex].value =  atoi(token);
-                    //printf("%d %s %d\n", dataSection[dsIndex].address, dataSection[dsIndex].name, dataSection[dsIndex].value);
-                    dsIndex++;
-                    for (int i = 0; i < vlIndex; i++) {
-                        if (strcmp(varName, varList[i].name) == 0) {
-                            varList[i].value = atoi(token);
-                        }
-                    }
-                }
-                strcpy(program1[lineCount].opcode, "");
-                strcpy(program1[lineCount].operand1,  token);
-                strcpy(program1[lineCount].operand2, "");
-                //printf("%s|%s|%s\n", program1[lineCount].opcode, program1[lineCount].operand1, program1[lineCount].operand2);
-                lineCount += 1;
-            }
-            //printf("        %d : %d\n", objCode[address].address, objCode[address].objCode);
-            address += 1;
-            if (opcodeBool == 1){
                 opcodeBool = 0;
+                breakAddressing = 1;
             }
+            if (quantOperandos > 0 && opcodeBool == 0 && breakAddressing == 0){            // Se for pra ler um operando
+                if (isInListINT(address, listOfOperands) == 0){
+                    if (jmpModule != 1){
+                        listOfOperands[opIndex] = malloc(sizeof(int));
+                        *listOfOperands[opIndex] = atoi(token);
+                        opIndex++;
+                        for (int i = 0; i < dadosIndex; i++){
+                            if (atoi(token) == dadosAI[i].addressVariableDeclared){
+                                if (strcmp(dadosAI[i].type, "CONST") == 0){
+                                    strcpy(dadosAI[i].type, "SPACE");
+                                }
+                                found = 1;
+                            }
+                        }
+                        if (found == 0){
+                            dadosAI[dadosIndex].addressVariableDeclared = atoi(token);
+                            if (atoi(program1[lineCount].opcode) == 11 || atoi(program1[lineCount].opcode) == 12){
+                                strcpy(dadosAI[dadosIndex].type, "SPACE");
+                            } else {
+                                strcpy(dadosAI[dadosIndex].type, "CONST");
+                            }
+                            dadosIndex++;
+                        }
+
+                    } else {
+                        for (int i = 0; i < dadosIndex; i++){
+                            if (atoi(token) == dadosAI[i].addressReferred){
+                                found = 1;
+                            }
+                        }
+                        if (found == 0){
+                            dadosAI[dadosIndex].addressVariableDeclared = address;
+                            strcpy(dadosAI[dadosIndex].type, "LABEL");
+                            dadosAI[dadosIndex].addressReferred = atoi(token);
+                            dadosIndex++;
+                        }
+                    }
+                    found = 0;
+                }
+                if (quantOperandos == 2){
+                    strcpy(program1[lineCount].operand2, token);
+                    quantOperandos -= 1;
+                    opcodeBool = 0;
+                } else if (quantOperandos == 1){
+                    strcpy(program1[lineCount].operand1, token);
+                    //printf("%s|%s|%s\n", program1[lineCount].opcode, program1[lineCount].operand1, program1[lineCount].operand2);
+                    quantOperandos -= 1;
+                    lineCount += 1;
+                    opcodeBool = 1;
+                }
+                jmpModule = 0;
+                breakAddressing = 1;
+            }
+            if (breakAddressing == 1){
+                breakAddressing = 0;
+            }
+            address += 1;
             token = strtok(NULL, " ");
         }
     }
     fclose(file);
-    printf("name type value address\n");
-    for (int a = 0; a < vlIndex; a++){
-        if (varList[a].type != 1 && varList[a].type != 3){
-            varList[a].type = 2;
-        }
-        printf("%s %d %d %d\n", varList[a].name, varList[a].type, varList[a].value, varList[a].address);
+    printf("Var declarada//Referência//Tipo\n");
+    for (int c = 0; c < dadosIndex; c++){
+        printf("%d %d %s\n",dadosAI[c].addressVariableDeclared, dadosAI[c].addressReferred, dadosAI[c].type);
     }
+    /*
+    printf("\n");
+    for (int a = 0; a < opIndex; a++){
+        printf("%d %d\n", a, *listOfOperands[a]);
+    }
+     */
     printf("\n");
     for (int b = 0; b < lineCount; b++){
         printf("%d %s|%s|%s\n", b, program1[b].opcode, program1[b].operand1, program1[b].operand2);
     }
 
-    for (int i = 0; i < 100; i++) {
-        free(varSimpleList[i]);
-    };
+    // Free allocated memory when done
+    for (int i = 0; i < opIndex; i++) {
+        free(listOfOperands[i]);
+    }
 }
+
 
 
 int main(int argc, char** argv) {
     char* filename = argv[1];
-    tradutor(filename);
+    objCodeTreatment(filename);
     return 0;
 }
