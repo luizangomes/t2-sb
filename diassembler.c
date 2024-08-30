@@ -55,7 +55,7 @@ struct ReturnValues {
 
 struct InventadoParaIA32 {
     int opcodeAI;
-    char codigoIA32[100];
+    char codigoIA32[200];
 };
 
 struct OpcodesAssembly tabelaDeInstrucoes[15] = {
@@ -77,29 +77,23 @@ struct OpcodesAssembly tabelaDeInstrucoes[15] = {
 };
 
 struct InventadoParaIA32 dicionarioIA32[14] = {
-    {1, "\tadd eax, [%s]\n"},    // ADD
-    {2, "\tsub eax, [%s]\n"},    // SUB
-    {3, "\timul eax, [%s]\n"},    // MUL
-    {4, "\tcdq\n\tidiv dword [%s]\n"},    // DIV
-    {5, "\tjump %s\n"},    // JMP
-    {6, "\tcmp eax,0\n\tjl %s\n"},    // JMPN
-    {7, "\tcmp eax,0\n\tjg %s\n"},    // JMPP
-    {8, "\tcmp eax,0\n\tje %s\n"},    // JMPZ
-    {9, "\tmov eax, [%s]\n\tmov [%s], eax\n"},    // COPY: a variável 1 é a OP1 e a variável 2 é a OP2
-    {10, "\tmov eax, %s\n"},    // LOAD: a variável é o que você quer carregar
-    {11, "\tmov [%s], eax\n"},    // STORE: a variável que você quer guardar, lembrando que tem que ter algo no acumulador
-    //{12, "\tpush dword %d\ncall INPUT\n"},
-    {12, "\tpush 16\n\tpush %s\n\tcall input\n\tpush dword %s\n\tpush dword %s\n\tcall string_to_int\n"},    // INPUT: o primeiro %s é um buffer, 2o é a variável que você quer guardar, e a 3a é o buffer novamente
-    {13, "\tpush %s\n\tpush dword [%s]\n\tcall int_to_string\n\tpush dword 16\n\tpush dword %s\n\tcall output\n"},    // OUTPUT: o primeiro %s é o buffer, o segundo é o que você quer imprimir, e o terceiro é o buffer de novo
-    {14, "\tmov eax, 1\n\txor ebx, ebx\n\tint 0x80\n"}    // STOP
+    {1, "add eax, [%s]\n"},    // ADD
+    {2, "sub eax, [%s]\n"},    // SUB
+    {3, "imul eax, [%s]\n\tjo OVERFLOW\n"},    // MUL
+    {4, "cdq\n\tidiv dword [%s]\n"},    // DIV
+    {5, "jmp %s\n"},    // JMP
+    {6, "cmp eax,0\n\tjl %s\n"},    // JMPN
+    {7, "cmp eax,0\n\tjg %s\n"},    // JMPP
+    {8, "cmp eax,0\n\tje %s\n"},    // JMPZ
+    {9, "mov eax, [%s]\n\tmov [%s], eax\n"},    // COPY: a variável 1 é a OP1 e a variável 2 é a OP2
+    {10, "mov eax, [%s]\n"},    // LOAD: a variável é o que você quer carregar
+    {11, "mov [%s], eax\n"},    // STORE: a variável que você quer guardar, lembrando que tem que ter algo no acumulador
+    {12, "push 16\n\tpush %s\n\tcall INPUT\n\tadd esp, 8\n\tpush dword %s\n\tpush dword %s\n\tcall STRING_TO_INT\n\tadd esp, 8\n\tpush 16\n\tpush inputBuffer\n\tcall clear_buffer\n"},    // INPUT: o primeiro %s é um buffer, 2o é a variável que você quer guardar, e a 3a é o buffer novamente
+    {13, "push %s\n\tpush dword [%s]\n\tcall INT_TO_STRING\n\tadd esp, 8\n\tpush dword 16\n\tpush dword %s\n\tcall OUTPUT\n\tadd esp, 8\n\tpush 16\n\tpush inputBuffer\n\tcall clear_buffer\n"},    // OUTPUT: o primeiro %s é o buffer, o segundo é o que você quer imprimir, e o terceiro é o buffer de novo
+    {14, "mov eax, 1\n\txor ebx, ebx\n\tint 0x80\n"}    // STOP
 };
 
-char funcoes[1000] = "";
-// Esse INPUT é somente para integers, supostamente ele trata inteiros negativos e positivos
-//INPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\n\txor eax, eax\n\txor edx, edx\n\txor ebx, ebx\n\tmov bl, 1\n\n\tmov eax, 3\n\tmov ebx, 0\n\tlea ecx, [esp-1]\n\tmov edx, 1\n\tint 0x80\n\n\tcmp byte [esp-1], '-'\n\tjne check_positive\n\tmov bl, -1\n\tjmp read_number\n\ncheck_positive:\n\tcmp byte [esp-1], '+'\n\tjne read_number\n\nread_number:\n\txor eax, eax\n\nconvert_loop:\n\tmov eax, 3\n\tmov ebx, 0\n\tlea ecx, [esp-1]\n\tmov edx, 1\n\tint 0x80\n\n\tcmp byte [esp-1], 10\n\tje done\n\n\tsub byte [esp-1], '0'\n\timul eax, eax, 10\n\tmovzx ebx, byte [esp-1]\n\tadd eax, ebx\n\tjmp convert_loop\n\ndone:\n\timul eax, ebx\n\tmov [ecx], eax\n\tpop ebp\n\tret
-// Esse usa as duas funções, a outra era nested
-//INPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\tmov eax, 3\n\tmov ebx, 0\n\tint 80h\n\tpop ebp\n\tret\n\nstring_to_int:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov ebx, [ebp+12]\n\txor eax, eax\n\txor edx, edx\n\tmov esi, 1\n\n\tmovzx edx, byte [ecx]\n\tcmp edx, '-'\n\tjne check_positive\n\tmov esi, -1\n\tinc ecx\n\tjmp convert_loop\n\ncheck_positive:\n\tcmp edx, '+'\n\tjne convert_loop\n\tinc ecx\n\nconvert_loop:\n\tmovzx edx, byte [ecx]\n\ttest edx, edx\n\tjz done\n\tcmp edx, 10\n\tje done\n\tsub edx, '0'\n\timul eax, eax, 10\n\tadd eax, edx\n\tinc ecx\n\tjmp convert_loop\n\ndone:\n\timul eax, esi\n\tmov [ebx], eax\n\tpop ebp\n\tret
-
+char funcoes[3700] ="INPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\tmov eax, 3\n\tmov ebx, 0\n\tint 80h\n\tpop ebp\n\tret\n\nSTRING_TO_INT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov ebx, [ebp+12]\n\txor eax, eax\n\txor edx, edx\n\tmov esi, 1\n\tmovzx edx, byte [ecx]\n\tcmp edx, '-'\n\tjne check_positive\n\tmov esi, -1\n\tinc ecx\n\tjmp convert_loop\ncheck_positive:\n\tcmp edx, '+'\n\tjne convert_loop\n\tinc ecx\nconvert_loop:\n\tmovzx edx, byte [ecx]\n\ttest edx, edx\n\tjz done\n\tcmp edx, '0'\n\tjb done\n\tcmp edx, '9'\n\tja done\n\tsub edx, '0'\n\timul eax, eax, 10\n\tadd eax, edx\n\tinc ecx\n\tjmp convert_loop\n done:\n\timul eax, esi\n\tmov [ebx], eax\n\tpop ebp\n\tret\n\nINT_TO_STRING:\n\tpush ebp\n\tmov ebp, esp\n\tmov eax, [ebp+8]\n\tmov ebx, [ebp+12]\n\tmov edi, ebx\n\tadd edi, 10\n\tmov byte [edi], 0\n\tdec edi\n\tcmp eax, 0\n\tje print_zero\n\tjs handle_negative\nconvert_loop_its:\n\txor edx, edx\n\tdiv dword [ten]\n\tadd dl, '0'\n\tmov [edi], dl\n\tdec edi\n\ttest eax, eax\n\tjnz convert_loop_its\n\tinc edi\n\tjmp done_its\nhandle_negative:\n\tneg eax\n\tjmp convert_loop_its\ndone_its:\n\tcmp byte [edi-1], '-'\n\tjne end_negative\n\tmov byte [edi], '-'\n\tdec edi\nend_negative:\n\tinc edi\n\tmov eax, edi\n\tpop ebp\n\tret\nprint_zero:\n\tmov byte [ebx], '0'\n\tmov byte [ebx+1], 0\n\tmov eax, ebx\n\tpop ebp\n\tret\n\nOUTPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\tmov eax, 4\n\tmov ebx, 1\n\tint 0x80\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, newline\n\tmov edx, 1\n\tint 0x80\n\tpop ebp\n\tret\n\nOVERFLOW:\n\tmov eax, 4\n\tmov ebx, 1\n\tlea ecx, [overflow_msg]\n\tmov edx, 18\n\tint 0x80\n\nclear_buffer:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\txor eax, eax\n\tclear_loop:\n\tmov byte [ecx], al\n\tinc ecx\n\tdec edx\n\tjnz clear_loop\n\tpop ebp\n\tret\n";
 
 // Returns the size/length of list in char
 int sizeOfList(char **list) {
@@ -141,6 +135,7 @@ int isInListINT(int integer, int *lista[]) {
     return 0; // Inteiro não encontrado na lista
 }
 
+
 struct ReturnValues objCodeTreatment(char* filename) {
     FILE *file;
     struct AddressObjCode objCode[100];
@@ -175,8 +170,8 @@ struct ReturnValues objCodeTreatment(char* filename) {
             if (isInListINT(address, listOfOperands) == 1){
                 strcpy(retValues.program1[retValues.lineCount].operand1, token);
                 for (int i = 0; i < retValues.dadosIndex; i++){
-                    if (address == retValues.dadosAI[retValues.dadosIndex].addressVariableDeclared){
-                        retValues.dadosAI[retValues.dadosIndex].addressReferred = atoi(token);
+                    if (address == retValues.dadosAI[i].addressVariableDeclared){
+                        retValues.dadosAI[i].addressReferred = atoi(token);
                     }
                 }
                 retValues.lineCount++;
@@ -284,28 +279,53 @@ struct ReturnValues objCodeTreatment(char* filename) {
     return retValues;
 }
 
-void inventadoToIA32(struct programAssemblyInventado program1[100], struct dadosAssemblyInventado dadosAI[100], int lineCount, int dadosIndex){
-    char line[1000] = "", operand1[100] = "", operand2[100] = "", inputBuffer[100] = "inputBuffer", varTemp[100] = "", varTemp2[100] = "";
-    char sectionData[10000] = "section .data\n", sectionBss[10000] = "section .bss\n\tinputBuffer resb 10\n", sectionText[10000] = "section .text\n\tglobal _start\n_start:\n";
-    int opcode = -1, address = 0;
+void inventadoToIA32(struct programAssemblyInventado program1[100], struct dadosAssemblyInventado dadosAI[100], int lineCount, int dadosIndex, char* filename){
+    char line[1000] = "", lineTemp[1000] = "", operand1[100] = "", operand2[100] = "", inputBuffer[100] = "inputBuffer", varTemp[100] = "", varTemp2[100] = "";
+    char sectionData[10000] = "section .data\n\tinputBuffer db 16 dup(0)\n\toverflow_msg db \"Overflow detectado!\", 0xA, 0\n\tnewline db 0xA\n\tten dd 10\n", sectionBss[10000] = "section .bss\n", sectionText[10000] = "section .text\n\tglobal _start\n";
+    int opcode = -1, address = 0, labelAtLine = 0;
     for (int i = 0; i < lineCount; i++){
+        strcpy(lineTemp, ""); strcpy(line, "");
+        if (address == 0){
+            strcat(sectionText, funcoes);
+            strcat(sectionText, "\n_start:\n");
+        }
         if (strcmp(program1[i].opcode, "") != 0){
             for (int j = 0 ; j < dadosIndex; j++){
-                if (dadosAI[j].addressVariableDeclared == address){
-                    printf("dados!!!\n");             // Checar se é uma variável para ser guardada na section data ou na bss
+                if (dadosAI[j].addressReferred == address && strcmp(dadosAI[j].type, "LABEL") == 0){
+                    strcpy(varTemp, "LABEL");
+                    sprintf(varTemp2, "%d", dadosAI[j].addressReferred);
+                    strcat(varTemp, varTemp2);
+                    strcat(varTemp, ": ");
+                    strcat(lineTemp, varTemp);
+                    labelAtLine = 1;
                 }
             }
             address += 1;
         }
+        if (labelAtLine == 0){
+            strcat(lineTemp, "\t");
+            labelAtLine = 0;
+        }
         if (strcmp(program1[i].operand1, "") != 0){
             for (int j = 0 ; j < dadosIndex; j++){
                 if (dadosAI[j].addressVariableDeclared == address && strcmp(dadosAI[j].type, "LABEL") != 0){
-                    printf("dados!!!\n");
-                    strcpy(varTemp, "\tvariable");
+                    strcpy(varTemp, "\tVARIABLE");
                     sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
                     strcat(varTemp, varTemp2);
-                    strcat(varTemp, " dd 0\n");
+                    strcat(varTemp, " dd ");
+                    sprintf(varTemp2, "%d", dadosAI[j].addressReferred);
+                    strcat(varTemp, varTemp2);
+                    strcat(varTemp, "\n");
                     strcat(sectionData, varTemp);
+                    /*
+                    if (strcmp(dadosAI[j].type, "SPACE") == 0){
+                        strcpy(varTemp, "\tVARIABLE");
+                        sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                        strcat(varTemp, varTemp2);
+                        strcat(varTemp, " resd 1\n");
+                        strcat(sectionBss, varTemp);
+                    }
+                     */
                 }
             }
             address += 1;
@@ -313,12 +333,11 @@ void inventadoToIA32(struct programAssemblyInventado program1[100], struct dados
         if (strcmp(program1[i].operand2, "") != 0 ){
             for (int j = 0 ; j < dadosIndex; j++){
                 if (dadosAI[j].addressVariableDeclared == address && strcmp(dadosAI[j].type, "LABEL") != 0){
-                    printf("dados!!!\n");
-                    strcpy(varTemp, "\tvariable");
+                    strcpy(varTemp, "\tVARIABLE");
                     sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
                     strcat(varTemp, varTemp2);
                     strcat(varTemp, " dd 0\n");
-                    strcat(sectionData, varTemp);
+                    strcat(line, varTemp);
                 }
             }
             address += 1;
@@ -328,25 +347,28 @@ void inventadoToIA32(struct programAssemblyInventado program1[100], struct dados
             for (int j = 0 ; j < dadosIndex; j++){
                 if (dadosAI[j].addressVariableDeclared == atoi(program1[i].operand1)){
                     if (strcmp(dadosAI[j].type, "LABEL") == 0){
-                        strcpy(varTemp, "label");
-                        sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                        strcpy(varTemp, "LABEL");
+                        sprintf(varTemp2, "%d", dadosAI[j].addressReferred);
                         strcat(varTemp, varTemp2);
                         strcpy(operand1, varTemp);
                     } else if (strcmp(dadosAI[j].type, "SPACE") == 0 || strcmp(dadosAI[j].type, "CONST") == 0) {
-                        strcpy(varTemp, "variable");
+                        strcpy(varTemp, "VARIABLE");
                         sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
                         strcat(varTemp, varTemp2);
                         strcpy(operand1, varTemp);
                     }
                 }
-                if (dadosAI[j].addressVariableDeclared == atoi(program1[i].operand2)){
+                if (dadosAI[j].addressReferred == atoi(program1[i].operand1)){
                     if (strcmp(dadosAI[j].type, "LABEL") == 0){
-                        strcpy(varTemp, "label");
-                        sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                        strcpy(varTemp, "LABEL");
+                        sprintf(varTemp2, "%d", dadosAI[j].addressReferred);
                         strcat(varTemp, varTemp2);
-                        strcpy(operand2, varTemp);
-                    } else if (strcmp(dadosAI[j].type, "SPACE") == 0 || strcmp(dadosAI[j].type, "CONST") == 0) {
-                        strcpy(varTemp, "variable");
+                        strcpy(operand1, varTemp);
+                    }
+                }
+                if (dadosAI[j].addressVariableDeclared == atoi(program1[i].operand2)){
+                    if (strcmp(dadosAI[j].type, "SPACE") == 0 || strcmp(dadosAI[j].type, "CONST") == 0) {
+                        strcpy(varTemp, "VARIABLE");
                         sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
                         strcat(varTemp, varTemp2);
                         strcpy(operand2, varTemp);
@@ -355,7 +377,7 @@ void inventadoToIA32(struct programAssemblyInventado program1[100], struct dados
             }
             switch (opcode){
                 case 9:
-                    sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, operand1, operand2);
+                    sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, operand2, operand1);
                     break;
                 case 12:
                 case 13:
@@ -368,23 +390,40 @@ void inventadoToIA32(struct programAssemblyInventado program1[100], struct dados
                     sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, operand1);
                     break;
             }
-            strcat(sectionText, line);
+            strcat(lineTemp, line);
+            strcat(sectionText, lineTemp);
             //sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, );
             //printf("%s", dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32);
-            printf("%s", line);
+            //printf("%s", lineTemp);
+            if (labelAtLine == 1){
+                labelAtLine = 0;
+            }
         }
     }
     printf("LINE COUNT NA INVENTADO PARA IA32 %d\n", lineCount);
     printf("%s%s%s", sectionData, sectionBss, sectionText);
+    // Escrita em arquivo o código
+    strcat(filename, ".s");
+    FILE *fileIA32 = fopen(filename, "w");
+
+    if (fileIA32 == NULL) {
+        perror("Error opening file! The code could not be writtened at the file!");
+    }
+
+    fprintf(fileIA32, "%s%s%s", sectionData, sectionBss, sectionText);
+
+    fclose(fileIA32);
 }
 
 
 
 int main(int argc, char** argv) {
     char* filename = argv[1];
+    char* filename2 = filename;
     struct ReturnValues result;
     // Chamar a função
     result = objCodeTreatment(filename);
-    inventadoToIA32(result.program1, result.dadosAI, result.lineCount, result.dadosIndex);
+    char *filenameNoEXT = strtok(filename2, ".");
+    inventadoToIA32(result.program1, result.dadosAI, result.lineCount, result.dadosIndex, filenameNoEXT);
     return 0;
 }
