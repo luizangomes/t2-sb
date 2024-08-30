@@ -45,6 +45,19 @@ struct variablesList{
     int address;
 };
 
+// Struct para retorno da objCodeTreatment
+struct ReturnValues {
+    struct programAssemblyInventado program1[100];
+    struct dadosAssemblyInventado dadosAI[100];
+    int lineCount;
+    int dadosIndex;
+};
+
+struct InventadoParaIA32 {
+    int opcodeAI;
+    char codigoIA32[100];
+};
+
 struct OpcodesAssembly tabelaDeInstrucoes[15] = {
     {"ADD", 1, 2, "ACC <- ACC + mem(OP)", 1},
     {"SUB", 2, 2, "ACC <- ACC - mem(OP)", 1},
@@ -62,6 +75,31 @@ struct OpcodesAssembly tabelaDeInstrucoes[15] = {
     {"OUTPUT", 13, 2, "saída <- mem(OP)", 1},
     {"STOP", 14, 1, "Suspende a execução", 0}
 };
+
+struct InventadoParaIA32 dicionarioIA32[14] = {
+    {1, "\tadd eax, [%s]\n"},    // ADD
+    {2, "\tsub eax, [%s]\n"},    // SUB
+    {3, "\timul eax, [%s]\n"},    // MUL
+    {4, "\tcdq\n\tidiv dword [%s]\n"},    // DIV
+    {5, "\tjump %s\n"},    // JMP
+    {6, "\tcmp eax,0\n\tjl %s\n"},    // JMPN
+    {7, "\tcmp eax,0\n\tjg %s\n"},    // JMPP
+    {8, "\tcmp eax,0\n\tje %s\n"},    // JMPZ
+    {9, "\tmov eax, [%s]\n\tmov [%s], eax\n"},    // COPY: a variável 1 é a OP1 e a variável 2 é a OP2
+    {10, "\tmov eax, %s\n"},    // LOAD: a variável é o que você quer carregar
+    {11, "\tmov [%s], eax\n"},    // STORE: a variável que você quer guardar, lembrando que tem que ter algo no acumulador
+    //{12, "\tpush dword %d\ncall INPUT\n"},
+    {12, "\tpush 16\n\tpush %s\n\tcall input\n\tpush dword %s\n\tpush dword %s\n\tcall string_to_int\n"},    // INPUT: o primeiro %s é um buffer, 2o é a variável que você quer guardar, e a 3a é o buffer novamente
+    {13, "\tpush %s\n\tpush dword [%s]\n\tcall int_to_string\n\tpush dword 16\n\tpush dword %s\n\tcall output\n"},    // OUTPUT: o primeiro %s é o buffer, o segundo é o que você quer imprimir, e o terceiro é o buffer de novo
+    {14, "\tmov eax, 1\n\txor ebx, ebx\n\tint 0x80\n"}    // STOP
+};
+
+char funcoes[1000] = "";
+// Esse INPUT é somente para integers, supostamente ele trata inteiros negativos e positivos
+//INPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\n\txor eax, eax\n\txor edx, edx\n\txor ebx, ebx\n\tmov bl, 1\n\n\tmov eax, 3\n\tmov ebx, 0\n\tlea ecx, [esp-1]\n\tmov edx, 1\n\tint 0x80\n\n\tcmp byte [esp-1], '-'\n\tjne check_positive\n\tmov bl, -1\n\tjmp read_number\n\ncheck_positive:\n\tcmp byte [esp-1], '+'\n\tjne read_number\n\nread_number:\n\txor eax, eax\n\nconvert_loop:\n\tmov eax, 3\n\tmov ebx, 0\n\tlea ecx, [esp-1]\n\tmov edx, 1\n\tint 0x80\n\n\tcmp byte [esp-1], 10\n\tje done\n\n\tsub byte [esp-1], '0'\n\timul eax, eax, 10\n\tmovzx ebx, byte [esp-1]\n\tadd eax, ebx\n\tjmp convert_loop\n\ndone:\n\timul eax, ebx\n\tmov [ecx], eax\n\tpop ebp\n\tret
+// Esse usa as duas funções, a outra era nested
+//INPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\tmov eax, 3\n\tmov ebx, 0\n\tint 80h\n\tpop ebp\n\tret\n\nstring_to_int:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov ebx, [ebp+12]\n\txor eax, eax\n\txor edx, edx\n\tmov esi, 1\n\n\tmovzx edx, byte [ecx]\n\tcmp edx, '-'\n\tjne check_positive\n\tmov esi, -1\n\tinc ecx\n\tjmp convert_loop\n\ncheck_positive:\n\tcmp edx, '+'\n\tjne convert_loop\n\tinc ecx\n\nconvert_loop:\n\tmovzx edx, byte [ecx]\n\ttest edx, edx\n\tjz done\n\tcmp edx, 10\n\tje done\n\tsub edx, '0'\n\timul eax, eax, 10\n\tadd eax, edx\n\tinc ecx\n\tjmp convert_loop\n\ndone:\n\timul eax, esi\n\tmov [ebx], eax\n\tpop ebp\n\tret
+
 
 // Returns the size/length of list in char
 int sizeOfList(char **list) {
@@ -103,16 +141,15 @@ int isInListINT(int integer, int *lista[]) {
     return 0; // Inteiro não encontrado na lista
 }
 
-void objCodeTreatment(char* filename){
+struct ReturnValues objCodeTreatment(char* filename) {
     FILE *file;
     struct AddressObjCode objCode[100];
-    struct programAssemblyInventado program1[100];
-    struct dadosAssemblyInventado dadosAI[100];
+    //struct programAssemblyInventado program1[100];
+    //struct dadosAssemblyInventado dadosAI[100];
+    struct ReturnValues retValues;
     char line[1000], *token;
     int *listOfOperands[100] = {NULL};
     int opIndex = 0;
-    int dadosIndex = 0;
-    int lineCount = 0;
     int address = 0;
     int jmpModule = -1;
     int opcodeBool = 0;
@@ -130,25 +167,23 @@ void objCodeTreatment(char* filename){
     while (fgets(line, 1000, file) != NULL) {
         char *token = strtok(line, " ");
         while (token != NULL) {
-            //printf("Token: %s\n", token);
             objCode[address].address = address;
             objCode[address].objCode = atoi(token);
             if (address == 0){
                 opcodeBool = 1;                        // Se for o endereço 00 sempre vamos assumir que é um opcode!!!
             }
             if (isInListINT(address, listOfOperands) == 1){
-                strcpy(program1[lineCount].operand1, token);
-                //printf("%s|%s|%s --const e space\n", program1[lineCount].opcode, program1[lineCount].operand1, program1[lineCount].operand2);
-                for (int i = 0; i < dadosIndex; i++){
-                    if (address == dadosAI[dadosIndex].addressVariableDeclared){
-                        dadosAI[dadosIndex].addressReferred = atoi(token);
+                strcpy(retValues.program1[retValues.lineCount].operand1, token);
+                for (int i = 0; i < retValues.dadosIndex; i++){
+                    if (address == retValues.dadosAI[retValues.dadosIndex].addressVariableDeclared){
+                        retValues.dadosAI[retValues.dadosIndex].addressReferred = atoi(token);
                     }
                 }
-                lineCount++;
+                retValues.lineCount++;
                 breakAddressing = 1;
             }
             if (objCode[address].objCode > 0 && objCode[address].objCode < 15 && opcodeBool == 1 && breakAddressing == 0){
-                strcpy(program1[lineCount].opcode, token);
+                strcpy(retValues.program1[retValues.lineCount].opcode, token);
                 // Caso de ADD, SUB, MUL, DIV, STORE, INPUT, OUT
                 if ((objCode[address].objCode > 0 && objCode[address].objCode < 5) || (objCode[address].objCode > 9 && objCode[address].objCode < 14) ){
                     quantOperandos = 1;
@@ -157,7 +192,6 @@ void objCodeTreatment(char* filename){
                 if (objCode[address].objCode > 4 && objCode[address].objCode < 9){
                     quantOperandos = 1;
                     jmpModule = 1;
-                    //printf("Jmp Module activated %d\n", jmpModule);
                 }
                 // Caso de COPY
                 if (objCode[address].objCode == 9){
@@ -166,7 +200,7 @@ void objCodeTreatment(char* filename){
                 // Caso de STOP
                 if (objCode[address].objCode == 14){
                     quantOperandos = 0;
-                    lineCount += 1;
+                    retValues.lineCount += 1;
                 }
 
                 opcodeBool = 0;
@@ -178,48 +212,47 @@ void objCodeTreatment(char* filename){
                         listOfOperands[opIndex] = malloc(sizeof(int));
                         *listOfOperands[opIndex] = atoi(token);
                         opIndex++;
-                        for (int i = 0; i < dadosIndex; i++){
-                            if (atoi(token) == dadosAI[i].addressVariableDeclared){
-                                if (strcmp(dadosAI[i].type, "CONST") == 0){
-                                    strcpy(dadosAI[i].type, "SPACE");
+                        for (int i = 0; i < retValues.dadosIndex; i++){
+                            if (atoi(token) == retValues.dadosAI[i].addressVariableDeclared){
+                                if (strcmp(retValues.dadosAI[i].type, "CONST") == 0){
+                                    strcpy(retValues.dadosAI[i].type, "SPACE");
                                 }
                                 found = 1;
                             }
                         }
                         if (found == 0){
-                            dadosAI[dadosIndex].addressVariableDeclared = atoi(token);
-                            if (atoi(program1[lineCount].opcode) == 11 || atoi(program1[lineCount].opcode) == 12){
-                                strcpy(dadosAI[dadosIndex].type, "SPACE");
+                            retValues.dadosAI[retValues.dadosIndex].addressVariableDeclared = atoi(token);
+                            if (atoi(retValues.program1[retValues.lineCount].opcode) == 11 || atoi(retValues.program1[retValues.lineCount].opcode) == 12){
+                                strcpy(retValues.dadosAI[retValues.dadosIndex].type, "SPACE");
                             } else {
-                                strcpy(dadosAI[dadosIndex].type, "CONST");
+                                strcpy(retValues.dadosAI[retValues.dadosIndex].type, "CONST");
                             }
-                            dadosIndex++;
+                            retValues.dadosIndex++;
                         }
 
                     } else {
-                        for (int i = 0; i < dadosIndex; i++){
-                            if (atoi(token) == dadosAI[i].addressReferred){
+                        for (int i = 0; i < retValues.dadosIndex; i++){
+                            if (atoi(token) == retValues.dadosAI[i].addressReferred){
                                 found = 1;
                             }
                         }
                         if (found == 0){
-                            dadosAI[dadosIndex].addressVariableDeclared = address;
-                            strcpy(dadosAI[dadosIndex].type, "LABEL");
-                            dadosAI[dadosIndex].addressReferred = atoi(token);
-                            dadosIndex++;
+                            retValues.dadosAI[retValues.dadosIndex].addressVariableDeclared = address;
+                            strcpy(retValues.dadosAI[retValues.dadosIndex].type, "LABEL");
+                            retValues.dadosAI[retValues.dadosIndex].addressReferred = atoi(token);
+                            retValues.dadosIndex++;
                         }
                     }
                     found = 0;
                 }
                 if (quantOperandos == 2){
-                    strcpy(program1[lineCount].operand2, token);
+                    strcpy(retValues.program1[retValues.lineCount].operand2, token);
                     quantOperandos -= 1;
                     opcodeBool = 0;
                 } else if (quantOperandos == 1){
-                    strcpy(program1[lineCount].operand1, token);
-                    //printf("%s|%s|%s\n", program1[lineCount].opcode, program1[lineCount].operand1, program1[lineCount].operand2);
+                    strcpy(retValues.program1[retValues.lineCount].operand1, token);
                     quantOperandos -= 1;
-                    lineCount += 1;
+                    retValues.lineCount += 1;
                     opcodeBool = 1;
                 }
                 jmpModule = 0;
@@ -234,30 +267,124 @@ void objCodeTreatment(char* filename){
     }
     fclose(file);
     printf("Var declarada//Referência//Tipo\n");
-    for (int c = 0; c < dadosIndex; c++){
-        printf("%d %d %s\n",dadosAI[c].addressVariableDeclared, dadosAI[c].addressReferred, dadosAI[c].type);
+    for (int c = 0; c < retValues.dadosIndex; c++){
+        printf("%d %d %s\n",retValues.dadosAI[c].addressVariableDeclared, retValues.dadosAI[c].addressReferred, retValues.dadosAI[c].type);
     }
-    /*
     printf("\n");
-    for (int a = 0; a < opIndex; a++){
-        printf("%d %d\n", a, *listOfOperands[a]);
-    }
-     */
-    printf("\n");
-    for (int b = 0; b < lineCount; b++){
-        printf("%d %s|%s|%s\n", b, program1[b].opcode, program1[b].operand1, program1[b].operand2);
+    for (int b = 0; b < retValues.lineCount; b++){
+        printf("%d %s|%s|%s\n", b, retValues.program1[b].opcode, retValues.program1[b].operand1, retValues.program1[b].operand2);
     }
 
     // Free allocated memory when done
     for (int i = 0; i < opIndex; i++) {
         free(listOfOperands[i]);
     }
+
+    retValues.lineCount = retValues.lineCount;
+    return retValues;
+}
+
+void inventadoToIA32(struct programAssemblyInventado program1[100], struct dadosAssemblyInventado dadosAI[100], int lineCount, int dadosIndex){
+    char line[1000] = "", operand1[100] = "", operand2[100] = "", inputBuffer[100] = "inputBuffer", varTemp[100] = "", varTemp2[100] = "";
+    char sectionData[10000] = "section .data\n", sectionBss[10000] = "section .bss\n\tinputBuffer resb 10\n", sectionText[10000] = "section .text\n\tglobal _start\n_start:\n";
+    int opcode = -1, address = 0;
+    for (int i = 0; i < lineCount; i++){
+        if (strcmp(program1[i].opcode, "") != 0){
+            for (int j = 0 ; j < dadosIndex; j++){
+                if (dadosAI[j].addressVariableDeclared == address){
+                    printf("dados!!!\n");             // Checar se é uma variável para ser guardada na section data ou na bss
+                }
+            }
+            address += 1;
+        }
+        if (strcmp(program1[i].operand1, "") != 0){
+            for (int j = 0 ; j < dadosIndex; j++){
+                if (dadosAI[j].addressVariableDeclared == address && strcmp(dadosAI[j].type, "LABEL") != 0){
+                    printf("dados!!!\n");
+                    strcpy(varTemp, "\tvariable");
+                    sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                    strcat(varTemp, varTemp2);
+                    strcat(varTemp, " dd 0\n");
+                    strcat(sectionData, varTemp);
+                }
+            }
+            address += 1;
+        }
+        if (strcmp(program1[i].operand2, "") != 0 ){
+            for (int j = 0 ; j < dadosIndex; j++){
+                if (dadosAI[j].addressVariableDeclared == address && strcmp(dadosAI[j].type, "LABEL") != 0){
+                    printf("dados!!!\n");
+                    strcpy(varTemp, "\tvariable");
+                    sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                    strcat(varTemp, varTemp2);
+                    strcat(varTemp, " dd 0\n");
+                    strcat(sectionData, varTemp);
+                }
+            }
+            address += 1;
+        }
+        opcode = atoi(program1[i].opcode);
+        if (opcode == dicionarioIA32[atoi(program1[i].opcode)-1].opcodeAI){
+            for (int j = 0 ; j < dadosIndex; j++){
+                if (dadosAI[j].addressVariableDeclared == atoi(program1[i].operand1)){
+                    if (strcmp(dadosAI[j].type, "LABEL") == 0){
+                        strcpy(varTemp, "label");
+                        sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                        strcat(varTemp, varTemp2);
+                        strcpy(operand1, varTemp);
+                    } else if (strcmp(dadosAI[j].type, "SPACE") == 0 || strcmp(dadosAI[j].type, "CONST") == 0) {
+                        strcpy(varTemp, "variable");
+                        sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                        strcat(varTemp, varTemp2);
+                        strcpy(operand1, varTemp);
+                    }
+                }
+                if (dadosAI[j].addressVariableDeclared == atoi(program1[i].operand2)){
+                    if (strcmp(dadosAI[j].type, "LABEL") == 0){
+                        strcpy(varTemp, "label");
+                        sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                        strcat(varTemp, varTemp2);
+                        strcpy(operand2, varTemp);
+                    } else if (strcmp(dadosAI[j].type, "SPACE") == 0 || strcmp(dadosAI[j].type, "CONST") == 0) {
+                        strcpy(varTemp, "variable");
+                        sprintf(varTemp2, "%d", dadosAI[j].addressVariableDeclared);
+                        strcat(varTemp, varTemp2);
+                        strcpy(operand2, varTemp);
+                    }
+                }
+            }
+            switch (opcode){
+                case 9:
+                    sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, operand1, operand2);
+                    break;
+                case 12:
+                case 13:
+                    sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, inputBuffer, operand1, inputBuffer);
+                    break;
+                case 14:
+                    sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, "");
+                    break;
+                default:
+                    sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, operand1);
+                    break;
+            }
+            strcat(sectionText, line);
+            //sprintf(line, dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32, );
+            //printf("%s", dicionarioIA32[atoi(program1[i].opcode)-1].codigoIA32);
+            printf("%s", line);
+        }
+    }
+    printf("LINE COUNT NA INVENTADO PARA IA32 %d\n", lineCount);
+    printf("%s%s%s", sectionData, sectionBss, sectionText);
 }
 
 
 
 int main(int argc, char** argv) {
     char* filename = argv[1];
-    objCodeTreatment(filename);
+    struct ReturnValues result;
+    // Chamar a função
+    result = objCodeTreatment(filename);
+    inventadoToIA32(result.program1, result.dadosAI, result.lineCount, result.dadosIndex);
     return 0;
 }
