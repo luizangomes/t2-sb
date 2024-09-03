@@ -1,16 +1,19 @@
 section .data
 	inputBuffer db 16 dup(0)
 	overflow_msg db "Overflow detectado!", 0xA, 0
+	countBytesBuffer1 db 16 dup(0)
+	msg1 db "<Foram lidos/escritos ", 0
+	msg2 db " bytes>",0
 	newline db 0xA
 	ten dd 10
 	VARIABLE28 dd 2
-	VARIABLE29 dd 0
-	VARIABLE30 dd 0
-	VARIABLE31 dd 0
 section .bss
+	VARIABLE29 resd 1
+	VARIABLE30 resd 1
+	VARIABLE31 resd 1
 section .text
 	global _start
-INPUT:
+S_INPUT:
 	push ebp
 	mov ebp, esp
 	mov ecx, [ebp+8]
@@ -18,6 +21,14 @@ INPUT:
 	mov eax, 3
 	mov ebx, 0
 	int 80h
+	push eax
+	call bytes_read_written
+	mov eax, 4
+	mov ebx, 1
+	mov ecx, newline
+	mov edx, 1
+	int 0x80
+	pop eax
 	pop ebp
 	ret
 
@@ -52,9 +63,37 @@ convert_loop:
 	add eax, edx
 	inc ecx
 	jmp convert_loop
- done:
+done:
 	imul eax, esi
 	mov [ebx], eax
+	pop ebp
+	ret
+
+INPUT:
+	push ebp
+	mov ebp, esp
+	push dword 16
+	push dword [ebp+8]
+	call S_INPUT
+	add esp, 8
+	push dword [ebp+12]
+	push dword [ebp+8]
+	call STRING_TO_INT
+	add esp, 8
+	pop ebp
+	ret
+
+OUTPUT:
+	push ebp
+	mov ebp, esp
+	push dword [ebp+12]
+	push dword [ebp+8]
+	call INT_TO_STRING
+	add esp, 8
+	push dword 16
+	push dword [ebp+12]
+	call S_OUTPUT
+	add esp, 8
 	pop ebp
 	ret
 
@@ -64,7 +103,7 @@ INT_TO_STRING:
 	mov eax, [ebp+8]
 	mov ebx, [ebp+12]
 	mov edi, ebx
-	add edi, 10
+	add edi, 14
 	mov byte [edi], 0
 	dec edi
 	cmp eax, 0
@@ -100,14 +139,22 @@ print_zero:
 	pop ebp
 	ret
 
-OUTPUT:
+S_OUTPUT:
 	push ebp
 	mov ebp, esp
+	mov eax, 4
+	mov ebx, 1
+	mov ecx, newline
+	mov edx, 1
+	int 0x80
 	mov ecx, [ebp+8]
 	mov edx, [ebp+12]
 	mov eax, 4
 	mov ebx, 1
 	int 0x80
+	push eax
+	call bytes_read_written
+	pop eax
 	mov eax, 4
 	mov ebx, 1
 	mov ecx, newline
@@ -137,21 +184,46 @@ clear_buffer:
 	pop ebp
 	ret
 
-_start:
+bytes_read_written:
+	push ebp
+	mov ebp, esp
+	mov ecx, [ebp+8]
+	push countBytesBuffer1
+	push dword ecx
+	call INT_TO_STRING
+	mov eax, 4
+	mov ebx, 1
+	mov ecx, msg1
+	mov edx, 22
+	int 0x80
+	mov eax, 4
+	mov ebx, 1
+	mov ecx, countBytesBuffer1
+	mov edx, 14
+	int 0x80
+	mov eax, 4
+	mov ebx, 1
+	mov ecx, msg2
+	mov edx, 7
+	int 0x80
 	push 16
-	push inputBuffer
-	call INPUT
-	add esp, 8
+	push countBytesBuffer1
+	call clear_buffer
+	mov esp, ebp
+	pop ebp
+	ret
+
+_start:
 	push dword VARIABLE29
 	push dword inputBuffer
-	call STRING_TO_INT
-	add esp, 8
+	call INPUT
 	push 16
 	push inputBuffer
 	call clear_buffer
 	mov eax, [VARIABLE29]
 LABEL4: cdq
 	idiv dword [VARIABLE28]
+	jo OVERFLOW
 	mov [VARIABLE30], eax
 	imul eax, [VARIABLE28]
 	jo OVERFLOW
@@ -161,12 +233,7 @@ LABEL4: cdq
 	mov [VARIABLE31], eax
 	push inputBuffer
 	push dword [VARIABLE31]
-	call INT_TO_STRING
-	add esp, 8
-	push dword 16
-	push dword inputBuffer
 	call OUTPUT
-	add esp, 8
 	push 16
 	push inputBuffer
 	call clear_buffer
