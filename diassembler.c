@@ -7,57 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct OpcodesAssembly {
-    char opcodeSimbolico[30];
-    int opcodeNumerico;
-    int tamanhoEmPalavras;
-    char acao[100];
-    int numeroDeOperandos;
-};
-
-struct AddressObjCode {
-    int address;
-    int objCode;
-};
-
-struct programAssemblyInventado{
-    char opcode[50];
-    char operand1[50];
-    char operand2[50];
-};
-
-struct dadosAssemblyInventado{
-    int addressReferred;                // Endereço que ela foi chamada
-    int addressVariableDeclared;        // Endereço em que a label está ou valor da const/space
-    char type[50];                      // Tipo de variável
-};
-
-struct dataSectionAI{
-    int address;
-    char name[50];
-    int value;
-};
-
-struct variablesList{
-    char name[50];
-    int type; //If ==1 it is label, ==2 it is const, ==3 it is space;
-    int value;    //if it is label it has the address to return to, if it is const is the constant value
-    int address;
-};
-
-// Struct para retorno da objCodeTreatment
-struct ReturnValues {
-    struct programAssemblyInventado program1[100];
-    struct dadosAssemblyInventado dadosAI[100];
-    int lineCount;
-    int dadosIndex;
-};
-
-struct InventadoParaIA32 {
-    int opcodeAI;
-    char codigoIA32[200];
-};
-
 struct OpcodesAssembly tabelaDeInstrucoes[17] = {
     {"ADD", 1, 2, "ACC <- ACC + mem(OP)", 1},
     {"SUB", 2, 2, "ACC <- ACC - mem(OP)", 1},
@@ -97,7 +46,7 @@ struct InventadoParaIA32 dicionarioIA32[16] = {
     {16, "push dword %d\n\tpush dword [%s]\n\tcall S_OUTPUT\n"}    //S_OUTPUT: primeiro é o número de bytes, o segundo é a variável a ser impressa
 };
 
-char funcoes[3700] ="S_INPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\tmov eax, 3\n\tmov ebx, 0\n\tint 80h\n\tpush eax\n\tcall bytes_read_written\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, newline\n\tmov edx, 1\n\tint 0x80\n\tpop eax\n\tpop ebp\n\tret\n\nSTRING_TO_INT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov ebx, [ebp+12]\n\txor eax, eax\n\txor edx, edx\n\tmov esi, 1\n\tmovzx edx, byte [ecx]\n\tcmp edx, '-'\n\tjne check_positive\n\tmov esi, -1\n\tinc ecx\n\tjmp convert_loop\ncheck_positive:\n\tcmp edx, '+'\n\tjne convert_loop\n\tinc ecx\nconvert_loop:\n\tmovzx edx, byte [ecx]\n\ttest edx, edx\n\tjz done\n\tcmp edx, '0'\n\tjb done\n\tcmp edx, '9'\n\tja done\n\tsub edx, '0'\n\timul eax, eax, 10\n\tadd eax, edx\n\tinc ecx\n\tjmp convert_loop\ndone:\n\timul eax, esi\n\tmov [ebx], eax\n\tpop ebp\n\tret\n\nINPUT:\n\tpush ebp\n\tmov ebp, esp\n\tpush dword 16\n\tpush dword [ebp+8]\n\tcall S_INPUT\n\tadd esp, 8\n\tpush dword [ebp+12]\n\tpush dword [ebp+8]\n\tcall STRING_TO_INT\n\tadd esp, 8\n\tpop ebp\n\tret\n\nOUTPUT:\n\tpush ebp\n\tmov ebp, esp\n\tpush dword [ebp+12]\n\tpush dword [ebp+8]\n\tcall INT_TO_STRING\n\tadd esp, 8\n\tpush dword 16\n\tpush dword [ebp+12]\n\tcall S_OUTPUT\n\tadd esp, 8\n\tpop ebp\n\tret\n\nINT_TO_STRING:\n\tpush ebp\n\tmov ebp, esp\n\tmov eax, [ebp+8]\n\tmov ebx, [ebp+12]\n\tmov edi, ebx\n\tadd edi, 14\n\tmov byte [edi], 0\n\tdec edi\n\tcmp eax, 0\n\tje print_zero\n\tjs handle_negative\nconvert_loop_its:\n\txor edx, edx\n\tdiv dword [ten]\n\tadd dl, '0'\n\tmov [edi], dl\n\tdec edi\n\ttest eax, eax\n\tjnz convert_loop_its\n\tinc edi\n\tjmp done_its\nhandle_negative:\n\tneg eax\n\tjmp convert_loop_its\ndone_its:\n\tcmp byte [edi-1], '-'\n\tjne end_negative\n\tmov byte [edi], '-'\n\tdec edi\nend_negative:\n\tinc edi\n\tmov eax, edi\n\tpop ebp\n\tret\nprint_zero:\n\tmov byte [ebx], '0'\n\tmov byte [ebx+1], 0\n\tmov eax, ebx\n\tpop ebp\n\tret\n\nS_OUTPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, newline\n\tmov edx, 1\n\tint 0x80\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\tmov eax, 4\n\tmov ebx, 1\n\tint 0x80\n\tpush eax\n\tcall bytes_read_written\n\tpop eax\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, newline\n\tmov edx, 1\n\tint 0x80\n\tpop ebp\n\tret\n\nOVERFLOW:\n\tmov eax, 4\n\tmov ebx, 1\n\tlea ecx, [overflow_msg]\n\tmov edx, 18\n\tint 0x80\n\nclear_buffer:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\txor eax, eax\n\tclear_loop:\n\tmov byte [ecx], al\n\tinc ecx\n\tdec edx\n\tjnz clear_loop\n\tpop ebp\n\tret\n\nbytes_read_written:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tpush countBytesBuffer1\n\tpush dword ecx\n\tcall INT_TO_STRING\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, msg1\n\tmov edx, 22\n\tint 0x80\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, countBytesBuffer1\n\tmov edx, 14\n\tint 0x80\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, msg2\n\tmov edx, 7\n\tint 0x80\n\tpush 16\n\tpush countBytesBuffer1\n\tcall clear_buffer\n\tmov esp, ebp\n\tpop ebp\n\tret\n";
+char funcoes[3700] ="S_INPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\tmov eax, 3\n\tmov ebx, 0\n\tint 80h\n\tpush eax\n\tcall bytes_read_written\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, newline\n\tmov edx, 1\n\tint 0x80\n\tpop eax\n\tpop ebp\n\tret\n\nSTRING_TO_INT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov ebx, [ebp+12]\n\txor eax, eax\n\txor edx, edx\n\tmov esi, 1\n\tmovzx edx, byte [ecx]\n\tcmp edx, '-'\n\tjne check_positive\n\tmov esi, -1\n\tinc ecx\n\tjmp convert_loop\ncheck_positive:\n\tcmp edx, '+'\n\tjne convert_loop\n\tinc ecx\nconvert_loop:\n\tmovzx edx, byte [ecx]\n\ttest edx, edx\n\tjz done\n\tcmp edx, '0'\n\tjb done\n\tcmp edx, '9'\n\tja done\n\tsub edx, '0'\n\timul eax, eax, 10\n\tadd eax, edx\n\tinc ecx\n\tjmp convert_loop\ndone:\n\timul eax, esi\n\tmov [ebx], eax\n\tpop ebp\n\tret\n\nINPUT:\n\tpush ebp\n\tmov ebp, esp\n\tpush dword 16\n\tpush dword [ebp+8]\n\tcall S_INPUT\n\tadd esp, 8\n\tpush dword [ebp+12]\n\tpush dword [ebp+8]\n\tcall STRING_TO_INT\n\tadd esp, 8\n\tpop ebp\n\tret\n\nOUTPUT:\n\tpush ebp\n\tmov ebp, esp\n\tpush dword [ebp+12]\n\tpush dword [ebp+8]\n\tcall INT_TO_STRING\n\tadd esp, 8\n\tpush dword 16\n\tpush dword [ebp+12]\n\tcall S_OUTPUT\n\tadd esp, 8\n\tpop ebp\n\tret\n\nINT_TO_STRING:\n\tpush ebp\n\tmov ebp, esp\n\tmov eax, [ebp+8]\n\tmov ebx, [ebp+12]\n\tmov edi, ebx\n\tadd edi, 14\n\tmov byte [edi], 0\n\tdec edi\n\tcmp eax, 0\n\tje print_zero\n\tjs handle_negative\nconvert_loop_its:\n\txor edx, edx\n\tdiv dword [ten]\n\tadd dl, '0'\n\tmov [edi], dl\n\tdec edi\n\ttest eax, eax\n\tjnz convert_loop_its\n\tinc edi\n\tjmp done_its\nhandle_negative:\n\tneg eax\n\tjmp convert_loop_its\ndone_its:\n\tcmp byte [edi-1], '-'\n\tjne end_negative\n\tmov byte [edi], '-'\n\tdec edi\nend_negative:\n\tinc edi\n\tmov eax, edi\n\tpop ebp\n\tret\nprint_zero:\n\tmov byte [ebx], '0'\n\tmov byte [ebx+1], 0\n\tmov eax, ebx\n\tpop ebp\n\tret\n\nS_OUTPUT:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\tmov eax, 4\n\tmov ebx, 1\n\tint 0x80\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, newline\n\tmov edx, 1\n\tint 0x80\n\tpush eax\n\tcall bytes_read_written\n\tpop eax\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, newline\n\tmov edx, 1\n\tint 0x80\n\tpop ebp\n\tret\n\nOVERFLOW:\n\tmov eax, 4\n\tmov ebx, 1\n\tlea ecx, [overflow_msg]\n\tmov edx, 18\n\tint 0x80\n\nclear_buffer:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tmov edx, [ebp+12]\n\txor eax, eax\n\tclear_loop:\n\tmov byte [ecx], al\n\tinc ecx\n\tdec edx\n\tjnz clear_loop\n\tpop ebp\n\tret\n\nbytes_read_written:\n\tpush ebp\n\tmov ebp, esp\n\tmov ecx, [ebp+8]\n\tpush countBytesBuffer1\n\tpush dword ecx\n\tcall INT_TO_STRING\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, msg1\n\tmov edx, 22\n\tint 0x80\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, countBytesBuffer1\n\tmov edx, 14\n\tint 0x80\n\tmov eax, 4\n\tmov ebx, 1\n\tmov ecx, msg2\n\tmov edx, 7\n\tint 0x80\n\tpush 16\n\tpush countBytesBuffer1\n\tcall clear_buffer\n\tmov esp, ebp\n\tpop ebp\n\tret\n";
 
 // Returns the size/length of list in char
 int sizeOfList(char **list) {
@@ -139,14 +88,14 @@ int isInListINT(int integer, int *lista[]) {
     return 0; // Inteiro não encontrado na lista
 }
 
-
+// Função que trata o código objeto em assembly inventado
 struct ReturnValues objCodeTreatment(char* filename) {
     FILE *file;
     struct AddressObjCode objCode[100];
     //struct programAssemblyInventado program1[100];
     //struct dadosAssemblyInventado dadosAI[100];
     struct ReturnValues retValues;
-    char line[1000], *token;
+    char line[1000];
     int *listOfOperands[100] = {NULL};
     int opIndex = 0;
     int address = 0;
@@ -267,15 +216,20 @@ struct ReturnValues objCodeTreatment(char* filename) {
         }
     }
     fclose(file);
+    // Imprime a tabela com as variáveis coletas do assembly inventado
+    /*
     printf("Var declarada//Referência//Tipo\n");
     for (int c = 0; c < retValues.dadosIndex; c++){
         printf("%d %d %s\n",retValues.dadosAI[c].addressVariableDeclared, retValues.dadosAI[c].addressReferred, retValues.dadosAI[c].type);
     }
     printf("\n");
+     */
+     // Destrinchando o código objeto do assembly inventado
+     /*
     for (int b = 0; b < retValues.lineCount; b++){
         printf("%d %s|%s|%s\n", b, retValues.program1[b].opcode, retValues.program1[b].operand1, retValues.program1[b].operand2);
     }
-
+      */
     // Free allocated memory when done
     for (int i = 0; i < opIndex; i++) {
         free(listOfOperands[i]);
@@ -285,6 +239,7 @@ struct ReturnValues objCodeTreatment(char* filename) {
     return retValues;
 }
 
+// Função que traduz o assembly inventado para IA32
 void inventadoToIA32(struct programAssemblyInventado program1[100], struct dadosAssemblyInventado dadosAI[100], int lineCount, int dadosIndex, char* filename){
     char line[1000] = "", lineTemp[1000] = "", operand1[100] = "", operand2[100] = "", inputBuffer[100] = "inputBuffer", varTemp[100] = "", varTemp2[100] = "";
     char sectionData[10000] = "section .data\n\tinputBuffer db 16 dup(0)\n\toverflow_msg db \"Overflow detectado!\", 0xA, 0\n\tcountBytesBuffer1 db 16 dup(0)\n\tmsg1 db \"<Foram lidos/escritos \", 0\n\tmsg2 db \" bytes>\",0\n\tnewline db 0xA\n\tten dd 10\n", sectionBss[10000] = "section .bss\n", sectionText[10000] = "section .text\n\tglobal _start\n";
@@ -412,7 +367,7 @@ void inventadoToIA32(struct programAssemblyInventado program1[100], struct dados
             }
         }
     }
-    printf("LINE COUNT NA INVENTADO PARA IA32 %d\n", lineCount);
+    //printf("LINE COUNT NA INVENTADO PARA IA32 %d\n", lineCount);
     printf("%s%s%s", sectionData, sectionBss, sectionText);
     // Escrita em arquivo o código
     strcat(filename, ".s");
