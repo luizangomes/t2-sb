@@ -6,11 +6,10 @@ section .data
 	msg2 db " bytes>",0
 	newline db 0xA
 	ten dd 10
-	VARIABLE28 dd 2
 section .bss
-	VARIABLE29 resd 1
-	VARIABLE30 resd 1
-	VARIABLE31 resd 1
+	VARIABLE13 resd 1
+	VARIABLE14 resd 1
+	VARIABLE15 resd 1
 section .text
 	global _start
 S_INPUT:
@@ -169,7 +168,7 @@ OVERFLOW:
 	lea ecx, [overflow_msg]
 	mov edx, 18
 	int 0x80
-mov eax, 1
+    mov eax, 1
 	xor ebx, ebx
 	int 0x80
 
@@ -217,35 +216,28 @@ bytes_read_written:
 	ret
 
 _start:
-	push dword VARIABLE29
+	push dword VARIABLE13
 	push dword inputBuffer
 	call INPUT
 	push 16
 	push inputBuffer
 	call clear_buffer
-	mov eax, [VARIABLE29]
-LABEL4: cdq
-	idiv dword [VARIABLE28]
-	jo OVERFLOW
-	mov [VARIABLE30], eax
-	imul eax, [VARIABLE28]
-	jo OVERFLOW
-	mov [VARIABLE31], eax
-	mov eax, [VARIABLE29]
-	sub eax, [VARIABLE31]
-	mov [VARIABLE31], eax
+	push dword VARIABLE14
+	push dword inputBuffer
+	call INPUT
+	push 16
 	push inputBuffer
-	push dword [VARIABLE31]
+	call clear_buffer
+	mov eax, [VARIABLE13]
+	add eax, [VARIABLE14]
+	mov [VARIABLE15], eax
+	push inputBuffer
+	push dword [VARIABLE15]
 	call OUTPUT
 	push 16
 	push inputBuffer
 	call clear_buffer
-	mov eax, [VARIABLE30]
-	mov [VARIABLE29], eax
-	mov eax, [VARIABLE29]
-	cmp eax,0
-	jg LABEL4
 	mov eax, 1
 	xor ebx, ebx
 	int 0x80
-				
+			
