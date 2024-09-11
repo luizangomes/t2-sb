@@ -1,1 +1,0 @@
-CMakeLists.txt not found in \\wsl.localhost\Ubuntu\home\luizangomes\t2-sb Select CMakeLists.txt
