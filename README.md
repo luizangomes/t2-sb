@@ -20,7 +20,7 @@ gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
 WSl Ubuntu 22.04
 ## Sobre as funções utilizadas no projeto
 ### S_INPUT: função de input que recebe string
-Sendo o primeiro parâmetro o tamanho da variável à ser recebida e o segundo parâmetro é a variável onde será guardada o valor recebido.
+Sendo o primeiro parâmetro o tamanho da variável à ser recebida e o segundo parâmetro é o endereço da variável onde será guardada o valor recebido.
 ```
 S_INPUT:
     push ebp
@@ -41,9 +41,15 @@ S_INPUT:
     pop ebp
     ret
 ```
+Se chama da seguinte forma, exemplo:
+```
+push 1024      ; Tamanho do buffer
+push buffer    ; Endereço do buffer
+call S_INPUT   ; Chama a função S_INPUT
+```
 ### STRING_TO_INT: função que converte a string para integer
-Sendo o primeiro parâmetro é variável que será guardada a variável após a conversão e o segundo parâmetro é a variável que será convertida.
-````
+Sendo o primeiro parâmetro é o endereço da variável que será guardada a variável após a conversão e o segundo parâmetro é o endereço da variável que será convertida.
+```asm
 STRING_TO_INT:
 	push ebp
 	mov ebp, esp
@@ -80,10 +86,16 @@ done:
 	mov [ebx], eax
 	pop ebp
 	ret
-````
-### INPUT: Função que recebe a string do terminal, passa pra integer e retorna
-Sendo o primeiro parâmetro é variável que será guardada a variável após a conversão para integere o segundo parâmetro é a variável em que o valor em string será guardado inicialmente, pode ser um _inputBuffer_.
 ```
+Exemplo de como é utilizada:
+```asm
+push result          ; Endereço onde o valor convertido será armazenado
+push str             ; Endereço da string contendo o número a ser convertido
+call STRING_TO_INT   ; Chama a função STRING_TO_INT
+```
+### INPUT: Função que recebe a string do terminal, passa pra integer e retorna
+Sendo o primeiro parâmetro é o ponteiro da variável que será guardada a variável após a conversão para integer e o segundo parâmetro é o ponteiro para variável em que o valor em string será guardado inicialmente, pode ser um _inputBuffer_.
+```asm
 INPUT:
 	push ebp
 	mov ebp, esp
@@ -98,9 +110,16 @@ INPUT:
 	pop ebp
 	ret
 ```
-### S_OUTPUT: Função que escreve no terminal uma string
-O primeiro parâmetro é a variável à ser impressa, e o segundo é o tamanho dessa variável.
+Exemplo de utilização:
+```asm
+push result    ; Endereço onde o valor convertido será armazenado
+push buffer    ; Endereço do buffer para armazenar a string
+call INPUT     ; Chama a função INPUT
+
 ```
+### S_OUTPUT: Função que escreve no terminal uma string
+O primeiro parâmetro é o ponteiro para a variável à ser impressa, e o segundo é o número de bytes à serem escritos.
+```asm
 S_OUTPUT:
 	push ebp
 	mov ebp, esp
@@ -125,9 +144,15 @@ S_OUTPUT:
 	pop ebp
 	ret
 ```
-### INT_TO_STRING: Função que converte int para string
-O primeiro parâmetro é a variável em que ficará guardada a variável convertida, e o segundo parâmetro é a string à ser convertida.
+Exemplo de utilização:
+```asm
+push length    ; Número de bytes a serem escritos
+push buffer    ; Endereço do buffer com os dados a serem impressos
+call S_OUTPUT  ; Chama a função S_OUTPUT
 ```
+### INT_TO_STRING: Função que converte int para string
+O primeiro parâmetro é o número inteiro a ser convertido para string, o segundo parâmetyro é o buffer onde a string convertida será guardada.
+```asm
 INT_TO_STRING:
 	push ebp
 	mov ebp, esp
@@ -170,9 +195,15 @@ print_zero:
 	pop ebp
 	ret
 ```
-### OUTPUT: Imprime no terminal uma integer e um '\n'
-O primeiro parâmetro é o número à ser impresso, e o segundo parâmetro é a string em que será guardado o número a ser impresso.
+Exemplo:
+```asm
+push buffer    ; Endereço do buffer para armazenar a string
+push value     ; Valor inteiro a ser convertido
+call INT_TO_STRING  ; Chama a função INT_TO_STRING
 ```
+### OUTPUT: Imprime no terminal uma integer e um '\n'
+O primeiro parâmetro é o valor inteiro a ser convertido para string, e o segundo é o ponteiro para o buffer onde a string será armazenada.
+```asm
 OUTPUT:
 	push ebp
 	mov ebp, esp
@@ -187,9 +218,16 @@ OUTPUT:
 	pop ebp
 	ret
 ```
-### bytes_read_written: retorna a quantidade de bytes lidos/escritos
-Recebe a variável que necessita ser lida/escrita para contar a quantidade bytes.
+Exemplo:
+```asm
+push buffer    ; Endereço do buffer para armazenar a string
+push value     ; Valor inteiro a ser convertido
+call OUTPUT    ; Chama a função OUTPUT
+
 ```
+### bytes_read_written: retorna a quantidade de bytes lidos/escritos
+Recebe a variável que necessita ser lida/escrita para contar a quantidade bytes. Imprime a quantidade de bytes lidos ou escritos.
+```asm
 bytes_read_written:
 	push ebp
 	mov ebp, esp
@@ -219,8 +257,14 @@ bytes_read_written:
 	pop ebp
 	ret
 ```
-### OVERFLOW: Detecta o overflow e encerra o programa
+Exemplo, lembrando que deve ser utilizada sempre a variável **countBytesBuffer1**':
+```asm
+push countBytesBuffer1  ; Endereço do buffer para armazenar a string convertida
+push byteCount          ; Quantidade de bytes a serem exibidos
+call bytes_read_written ; Chama a função bytes_read_written
 ```
+### OVERFLOW: Detecta o overflow e encerra o programa
+``` asm
 OVERFLOW:
 	mov eax, 4
 	mov ebx, 1
@@ -232,15 +276,15 @@ OVERFLOW:
 	int 0x80
 ```
 ### clear_buffer: Limpa o buffer
-Normalmente utilizado para limpar os buffers utilizados no projeto. O primeiro parâmetro é o tamanho do buffer, o segundo é o buffer em si.
-```
+Normalmente utilizado para limpar os buffers utilizados no projeto. O primeiro parâmetro é o ponteiro do buffer a ser limpo, o segundo é o número de bytes a serem lidos.
+```asm
 clear_buffer:
 	push ebp
 	mov ebp, esp
 	mov ecx, [ebp+8]
 	mov edx, [ebp+12]
 	xor eax, eax
-	clear_loop:
+clear_loop:
 	mov byte [ecx], al
 	inc ecx
 	dec edx
@@ -248,13 +292,19 @@ clear_buffer:
 	pop ebp
 	ret
 ```
-## Parte do Section .data obrigatória
+Exemplo:
+```asm
+push numBytes      ; Número de bytes a serem limpos no buffer
+push bufferPointer ; Endereço do buffer a ser limpo
+call clear_buffer  ; Chama a função clear_buffer
 ```
-	inputBuffer db 16 dup(0)
-	overflow_msg db "Overflow detectado!", 0xA, 0
-	countBytesBuffer1 db 16 dup(0)
-	msg1 db "<Foram lidos/escritos ", 0
-	msg2 db " bytes>",0
-	newline db 0xA
-	ten dd 10
+## Parte do Section .data obrigatória
+```asm
+inputBuffer db 16 dup(0)                      ; Buffer utilizado no decorrer do código
+overflow_msg db "Overflow detectado!", 0xA, 0 ; mensagem de overflow
+countBytesBuffer1 db 16 dup(0)                ; bytes lidos, temporária
+msg1 db "<Foram lidos/escritos ", 0           ; mensagem de bytes lidos
+msg2 db " bytes>",0                           ; mensagem de bytes lidos
+newline db 0xA                                ; Nova linha
+ten dd 10                                     ; Número 10
 ```
