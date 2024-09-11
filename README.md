@@ -1,9 +1,20 @@
 # Trabalho 2 - Diassembler
 ### Aluna: Luiza de Araújo Nunes Gomes
 ### Matrícula: 190112794
+### Repositório do projeto: https://github.com/luizangomes/t2-sb.git
 
 ## Como rodar o projeto?
+Rode o seguinte no terminal:
+
 ``make``
+
+Agora, você terá acesso à "./tradutor", que te permitirá passar códigos objetos em assembly inventado para IA32. Para fazer isso você precisa, para um programa na **_mesma pasta do projeto_**:
+
+``
+./tradutor codobjai.obj
+``
+
+Assim, na mesma pasta, o arquivo com o código em assembly ia32 será gerado.
 ## Arquivos presentes no projeto
 * **diassembler.c**: arquivo em c com o código do projeto
 * **diassembler.h**: arquivo em c com o header do projeto
@@ -21,7 +32,7 @@ WSl Ubuntu 22.04
 ## Sobre as funções utilizadas no projeto
 ### S_INPUT: função de input que recebe string
 Sendo o primeiro parâmetro o tamanho da variável à ser recebida e o segundo parâmetro é o endereço da variável onde será guardada o valor recebido.
-```
+```asm
 S_INPUT:
     push ebp
     mov ebp, esp
@@ -42,7 +53,7 @@ S_INPUT:
     ret
 ```
 Se chama da seguinte forma, exemplo:
-```
+```asm
 push 1024      ; Tamanho do buffer
 push buffer    ; Endereço do buffer
 call S_INPUT   ; Chama a função S_INPUT
